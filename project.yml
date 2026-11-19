@@ -1,0 +1,47 @@
+name: RemoteDeck
+options:
+  bundleIdPrefix: com.remotedeck
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+packages:
+  WebRTC:
+    url: https://github.com/stasel/WebRTC.git
+    exactVersion: 158.0.0
+targets:
+  RemoteDeck:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources/RemoteDeck
+    dependencies:
+      - package: WebRTC
+        product: WebRTC
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.remotedeck.ios
+        PRODUCT_NAME: RemoteDeck
+        SWIFT_VERSION: "5.0"
+        IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+        CODE_SIGN_ENTITLEMENTS: RemoteDeck.entitlements
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Sources/RemoteDeck/Info.plist
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+        SWIFT_STRICT_CONCURRENCY: minimal
+    scheme:
+      testTargets:
+        - RemoteDeckTests
+  RemoteDeckTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: Tests/RemoteDeckTests
+    dependencies:
+      - target: RemoteDeck
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.remotedeck.ios.tests
+        SWIFT_VERSION: "5.0"
+        IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+        GENERATE_INFOPLIST_FILE: YES

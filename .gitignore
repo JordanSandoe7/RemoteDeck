@@ -1,0 +1,12 @@
+reference/
+.DS_Store
+.build/
+DerivedData/
+build/
+RemoteDeck.xcodeproj/
+RemoteDeck.xcworkspace/
+.swiftpm/
+*.xcuserstate
+xcuserdata/
+*.ipa
+*.xcarchive
