@@ -133,4 +133,6 @@ Protocol research and ported implementation ideas are credited to [XStreaming](h
 
 Tokens are stored in the iOS Keychain with device-only accessibility. RemoteDeck does not send telemetry or contact a third-party backend. Microsoft sign-in and Xbox streaming endpoints receive the requests needed to authenticate and connect your account and console. Do not share a build with anyone unless you trust the source.
 
+The player targets 1080p at up to 60 FPS by default and allows a bitrate ceiling of 20 Mbps. The console, game, and network determine the actual frame rate and delay; zero latency is not possible.
+
 RemoteDeck is an independent project, is not affiliated with Microsoft or Apple, and is intended only for streaming your own console and games that you own. Xbox, Xbox Live, and related marks are trademarks of Microsoft.

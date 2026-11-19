@@ -14,7 +14,7 @@ final class RemoteDeckModel: ObservableObject {
     @Published private(set) var signInStatus: String?
     @Published var errorMessage: String?
     @Published var resolution = 1080
-    @Published var bitrateKbps = 12000
+    @Published var bitrateKbps = 20000
     @Published var showTouchControls = true
 
     let controller = GameControllerInput()
@@ -58,7 +58,7 @@ final class RemoteDeckModel: ObservableObject {
                 } catch {
                     self.deviceCode = nil
                     self.signInStatus = nil
-                    self.errorMessage = error.localizedDescription
+                    self.errorMessage = Self.friendlyError(error)
                 }
             }
         } catch {

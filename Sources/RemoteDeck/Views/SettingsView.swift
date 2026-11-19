@@ -29,6 +29,9 @@ struct SettingsView: View {
                         )
                         .tint(.green)
                     }
+                    Text("Target: \(model.resolution)p at up to 60 FPS. Actual frame rate and latency depend on your Xbox, game, and network.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
                 Section("Controls") {
                     Toggle("On-screen touch controller", isOn: $model.showTouchControls)
