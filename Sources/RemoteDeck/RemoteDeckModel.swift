@@ -11,6 +11,7 @@ final class RemoteDeckModel: ObservableObject {
     @Published private(set) var hasSavedTokens = false
     @Published private(set) var isBusy = false
     @Published private(set) var isStreaming = false
+    @Published private(set) var signInStatus: String?
     @Published var errorMessage: String?
     @Published var resolution = 1080
     @Published var bitrateKbps = 12000
@@ -37,22 +38,31 @@ final class RemoteDeckModel: ObservableObject {
         guard !isBusy else { return }
         isBusy = true
         errorMessage = nil
+        signInStatus = "Requesting a Microsoft sign-in code…"
         defer { isBusy = false }
         do {
             let code = try await auth.requestDeviceCode()
             deviceCode = code
+            signInStatus = "Waiting for approval. Return to RemoteDeck after approving."
             signInTask?.cancel()
             signInTask = Task { [weak self] in
+                guard let self else { return }
                 do {
-                    _ = try await self?.auth.pollForDeviceCode(code)
-                    self?.hasSavedTokens = true
-                    await self?.loadConsoles()
+                    _ = try await self.auth.pollForDeviceCode(code)
+                    self.signInStatus = "Approved. Finishing Xbox sign-in…"
+                    self.hasSavedTokens = true
+                    self.deviceCode = nil
+                    await self.loadConsoles()
+                    self.signInStatus = nil
                 } catch is CancellationError {
                 } catch {
-                    self?.errorMessage = error.localizedDescription
+                    self.deviceCode = nil
+                    self.signInStatus = nil
+                    self.errorMessage = error.localizedDescription
                 }
             }
         } catch {
+            signInStatus = nil
             errorMessage = error.localizedDescription
         }
     }

@@ -1,9 +1,11 @@
 import SwiftUI
+import UIKit
 
 struct ContentView: View {
     @EnvironmentObject private var model: RemoteDeckModel
     @Environment(\.openURL) private var openURL
     @State private var showingSettings = false
+    @State private var copiedDeviceCode: String?
 
     var body: some View {
         NavigationStack {
@@ -133,6 +135,19 @@ struct ContentView: View {
                 .padding(.vertical, 12)
                 .background(.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 12))
             Button {
+                UIPasteboard.general.string = code.userCode
+                copiedDeviceCode = code.userCode
+            } label: {
+                Label(
+                    copiedDeviceCode == code.userCode ? "Copied" : "Copy code",
+                    systemImage: copiedDeviceCode == code.userCode ? "checkmark" : "doc.on.doc"
+                )
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityLabel("Copy Microsoft sign-in code")
+            Button {
                 openURL(code.verificationURI)
             } label: {
                 Label("Open Microsoft sign-in", systemImage: "arrow.up.right.square")
@@ -144,7 +159,7 @@ struct ContentView: View {
             }
             HStack {
                 ProgressView()
-                Text("Waiting for sign-in approval…")
+                Text(model.signInStatus ?? "Waiting for Microsoft approval. Return here after approving.")
                     .foregroundStyle(.secondary)
             }
         }

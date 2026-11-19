@@ -12,6 +12,8 @@ struct PlayerView: View {
                 Color.black
                 if let track = transport.videoTrack {
                     WebRTCVideoSurface(track: track)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
                         .ignoresSafeArea()
                 } else {
                     VStack(spacing: 12) {
@@ -96,7 +98,7 @@ private struct WebRTCVideoSurface: UIViewRepresentable {
 
     func makeUIView(context: Context) -> RTCMTLVideoView {
         let view = RTCMTLVideoView()
-        view.videoContentMode = .scaleAspectFit
+        view.videoContentMode = .scaleAspectFill
         return view
     }
 
