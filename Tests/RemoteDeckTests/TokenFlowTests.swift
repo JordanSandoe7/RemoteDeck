@@ -15,9 +15,7 @@ final class TokenFlowTests: XCTestCase {
 
         XCTAssertEqual(request.httpMethod, "POST")
         XCTAssertEqual(request.value(forHTTPHeaderField: "Content-Type"), "application/x-www-form-urlencoded")
-        let body = try XCTUnwrap(request.httpBody)
-        let query = URLComponents(string: "https://example.invalid/?\(String(decoding: body, as: UTF8.self))")?.queryItems
-        let fields = Dictionary(uniqueKeysWithValues: try XCTUnwrap(query).map { ($0.name, $0.value ?? "") })
+        let fields = try decodeFormFields(from: request)
         XCTAssertEqual(fields["client_id"], XboxAuthClient.publicClientID)
         XCTAssertEqual(fields["scope"], "xboxlive.signin openid profile offline_access")
         XCTAssertNil(fields["client_secret"])
@@ -33,9 +31,7 @@ final class TokenFlowTests: XCTestCase {
                 "device_code": "device-code-value"
             ]
         )
-        let body = try XCTUnwrap(request.httpBody)
-        let query = URLComponents(string: "https://example.invalid/?\(String(decoding: body, as: UTF8.self))")?.queryItems
-        let fields = Dictionary(uniqueKeysWithValues: try XCTUnwrap(query).map { ($0.name, $0.value ?? "") })
+        let fields = try decodeFormFields(from: request)
 
         XCTAssertEqual(fields["grant_type"], "urn:ietf:params:oauth:grant-type:device_code")
         XCTAssertEqual(fields["device_code"], "device-code-value")
@@ -61,5 +57,13 @@ final class TokenFlowTests: XCTestCase {
         XCTAssertEqual(tokens.expiresAt, now.addingTimeInterval(3600))
         XCTAssertTrue(tokens.isValid(at: now))
         XCTAssertFalse(tokens.isValid(at: now.addingTimeInterval(3600)))
+    }
+
+    private func decodeFormFields(from request: URLRequest) throws -> [String: String] {
+        let body = try XCTUnwrap(request.httpBody)
+        let encodedForm = String(decoding: body, as: UTF8.self)
+            .replacingOccurrences(of: "+", with: "%20")
+        let query = URLComponents(string: "https://example.invalid/?\(encodedForm)")?.queryItems
+        return Dictionary(uniqueKeysWithValues: try XCTUnwrap(query).map { ($0.name, $0.value ?? "") })
     }
 }
