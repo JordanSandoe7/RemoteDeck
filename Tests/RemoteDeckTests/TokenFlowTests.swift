@@ -52,6 +52,15 @@ final class TokenFlowTests: XCTestCase {
         XCTAssertFalse(XboxHTTPClient.isTransientNetworkError(URLError(.unsupportedURL)))
     }
 
+    func testWaitingForServerRegistrationIsRecognized() {
+        let error = SessionSignalingError.failed(
+            "Xccs : ErrorCalling WNS : Send command failed :State WaitingForServerToRegister"
+        )
+
+        XCTAssertTrue(SessionSignalingError.isServerRegistrationPending(error))
+        XCTAssertFalse(SessionSignalingError.isServerRegistrationPending(SessionSignalingError.timeout))
+    }
+
     func testOAuthTokenSetUsesExpiryAndRefreshToken() throws {
         let data = Data(#"{"access_token":"access","refresh_token":"refresh","expires_in":3600}"#.utf8)
         let payload = try JSONDecoder().decode(OAuthTokenPayload.self, from: data)

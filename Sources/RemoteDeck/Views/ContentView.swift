@@ -173,7 +173,16 @@ struct ContentView: View {
                 Text("Your consoles")
                     .font(.title3.bold())
                 Spacer()
-                if model.isBusy { ProgressView() }
+                if model.isBusy {
+                    HStack(spacing: 8) {
+                        ProgressView()
+                        if let status = model.connectionStatus {
+                            Text(status)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }
             if model.consoles.isEmpty && !model.isBusy {
                 VStack(spacing: 10) {
@@ -204,7 +213,7 @@ struct ContentView: View {
                                 Text(console.deviceName)
                                     .font(.headline)
                                     .foregroundStyle(.primary)
-                                Text(console.powerState ?? "Power status unavailable")
+                                Text(console.powerState.map { "Xbox reports \($0)" } ?? "Power status unavailable")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }

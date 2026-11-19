@@ -15,6 +15,7 @@ struct RemoteStreamSession {
 enum SessionSignalingError: Error, LocalizedError {
     case invalidSessionResponse
     case failed(String?)
+    case consoleDidNotRegister(String?)
     case timeout
 
     var errorDescription: String? {
@@ -23,10 +24,19 @@ enum SessionSignalingError: Error, LocalizedError {
             return "Xbox returned an invalid streaming session response."
         case .failed(let reason):
             let detail = reason.map { " Xbox reported: \($0)" } ?? ""
-            return "Xbox could not provision the stream. Check that the console is online, Remote Features is enabled, and power mode is set to Instant-On.\(detail)"
+            return "Xbox could not provision the stream. Check that the console is online, Remote Features is enabled, and power mode is set to Sleep/Standby.\(detail)"
+        case .consoleDidNotRegister(let reason):
+            let detail = reason.map { " Xbox reported: \($0)" } ?? ""
+            return "Xbox did not register for remote play after the wake retries. Confirm Remote Features and Sleep/Standby power mode are enabled.\(detail)"
         case .timeout:
             return "Xbox did not finish preparing the stream in time. Check console power and your network."
         }
+    }
+
+    static func isServerRegistrationPending(_ error: Error) -> Bool {
+        let message = error.localizedDescription.lowercased()
+        return message.contains("waitingforservertoregister")
+            || message.contains("errorcalling wns")
     }
 }
 

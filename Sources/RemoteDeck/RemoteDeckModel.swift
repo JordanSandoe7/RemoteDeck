@@ -12,6 +12,7 @@ final class RemoteDeckModel: ObservableObject {
     @Published private(set) var isBusy = false
     @Published private(set) var isStreaming = false
     @Published private(set) var signInStatus: String?
+    @Published private(set) var connectionStatus: String?
     @Published var errorMessage: String?
     @Published var resolution = 1080
     @Published var bitrateKbps = 20000
@@ -85,20 +86,31 @@ final class RemoteDeckModel: ObservableObject {
         guard !isBusy else { return }
         isBusy = true
         errorMessage = nil
-        defer { isBusy = false }
+        connectionStatus = "Checking Xbox availability…"
+        defer {
+            isBusy = false
+            connectionStatus = nil
+        }
         do {
             let newContext = try await auth.currentContext()
             context = newContext
-            if let state = console.powerState?.lowercased(),
-               state.contains("off") || state.contains("standby") {
-                try await consoleService.wake(console, using: newContext)
+            let reportedOff = console.powerState?.lowercased().contains("off") == true
+                || console.powerState?.lowercased().contains("standby") == true
+            var didSendWake = false
+            if reportedOff {
+                connectionStatus = "Xbox reports standby/off. Sending wake request…"
+                try await sendWakeRequest(console, using: newContext)
+                didSendWake = true
+                connectionStatus = "Waiting for Xbox to wake…"
                 try await Task.sleep(nanoseconds: 12_000_000_000)
             }
             let service = SessionSignalingService(auth: auth)
             sessionService = service
-            let session = try await service.start(
+            let session = try await startSessionWithWakeRecovery(
                 console: console,
                 context: newContext,
+                service: service,
+                didSendWake: didSendWake,
                 preferences: StreamPreferences(
                     resolution: resolution,
                     bitrateKbps: bitrateKbps,
@@ -131,9 +143,73 @@ final class RemoteDeckModel: ObservableObject {
         }
     }
 
+    private func startSessionWithWakeRecovery(
+        console: XboxConsole,
+        context: XboxAuthContext,
+        service: SessionSignalingService,
+        didSendWake initiallyWoke: Bool,
+        preferences: StreamPreferences
+    ) async throws -> RemoteStreamSession {
+        let retryDelays: [UInt64] = [8, 15]
+        var didSendWake = initiallyWoke
+
+        for attempt in 0...retryDelays.count {
+            connectionStatus = didSendWake
+                ? "Waiting for Xbox to register…"
+                : "Starting Xbox stream…"
+            do {
+                return try await service.start(
+                    console: console,
+                    context: context,
+                    preferences: preferences
+                )
+            } catch {
+                guard SessionSignalingError.isServerRegistrationPending(error) else {
+                    throw error
+                }
+                guard attempt < retryDelays.count else {
+                    throw SessionSignalingError.consoleDidNotRegister(error.localizedDescription)
+                }
+
+                if !didSendWake {
+                    connectionStatus = "Xbox reports online but is not registered. Sending wake request…"
+                    try await sendWakeRequest(console, using: context)
+                    didSendWake = true
+                    connectionStatus = "Waiting for Xbox to wake…"
+                    try await Task.sleep(nanoseconds: 12_000_000_000)
+                } else {
+                    connectionStatus = "Xbox is still registering. Retrying stream setup…"
+                    try await Task.sleep(nanoseconds: retryDelays[attempt] * 1_000_000_000)
+                }
+            }
+        }
+
+        throw SessionSignalingError.timeout
+    }
+
+    private func sendWakeRequest(_ console: XboxConsole, using context: XboxAuthContext) async throws {
+        let retryDelays: [UInt64] = [5, 10]
+        for attempt in 0...retryDelays.count {
+            do {
+                try await consoleService.wake(console, using: context)
+                return
+            } catch {
+                guard SessionSignalingError.isServerRegistrationPending(error) else {
+                    throw error
+                }
+                guard attempt < retryDelays.count else {
+                    throw SessionSignalingError.consoleDidNotRegister(error.localizedDescription)
+                }
+                connectionStatus = "Xbox is registering for wake-up. Retrying…"
+                try await Task.sleep(nanoseconds: retryDelays[attempt] * 1_000_000_000)
+            }
+        }
+    }
+
     func disconnect() async {
         keepAliveTask?.cancel()
         keepAliveTask = nil
+        connectionStatus = nil
         transport?.onReconnectRequested = nil
         transport?.close()
         transport = nil
