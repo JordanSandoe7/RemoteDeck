@@ -539,8 +539,35 @@ final class WebRTCTransport: NSObject, ObservableObject {
 extension WebRTCTransport: RTCPeerConnectionDelegate {
     func peerConnection(_ peerConnection: RTCPeerConnection, didChange stateChanged: RTCSignalingState) {}
 
+    func peerConnection(
+        _ peerConnection: RTCPeerConnection,
+        didAdd receiver: RTCRtpReceiver,
+        streams: [RTCMediaStream]
+    ) {
+        let track = receiver.track
+        if let videoTrack = track as? RTCVideoTrack {
+            DispatchQueue.main.async {
+                guard !self.closed else { return }
+                self.videoTrack = videoTrack
+            }
+        } else if track.kind == "audio" {
+            track.isEnabled = true
+        }
+    }
+
+    func peerConnection(_ peerConnection: RTCPeerConnection, didRemove receiver: RTCRtpReceiver) {
+        DispatchQueue.main.async {
+            guard let videoTrack = receiver.track as? RTCVideoTrack,
+                  self.videoTrack === videoTrack else {
+                return
+            }
+            self.videoTrack = nil
+        }
+    }
+
     func peerConnection(_ peerConnection: RTCPeerConnection, didAdd stream: RTCMediaStream) {
         DispatchQueue.main.async {
+            guard !self.closed else { return }
             self.videoTrack = stream.videoTracks.first
             stream.audioTracks.forEach { $0.isEnabled = true }
         }
