@@ -40,14 +40,36 @@ final class XboxHTTPClient {
             throw URLError(.unsupportedURL)
         }
 
-        let (data, response) = try await session.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw URLError(.badServerResponse)
+        let retryable = Self.isRetryable(request)
+        var retryCount = 0
+        while true {
+            do {
+                let (data, response) = try await session.data(for: request)
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    throw URLError(.badServerResponse)
+                }
+                guard (200..<300).contains(httpResponse.statusCode) else {
+                    let error = Self.serviceError(data: data, status: httpResponse.statusCode)
+                    guard retryable,
+                          Self.isTransientServerStatus(httpResponse.statusCode),
+                          retryCount < 2 else {
+                        throw error
+                    }
+                    try await Task.sleep(nanoseconds: Self.retryDelay(retryCount))
+                    retryCount += 1
+                    continue
+                }
+                return XboxHTTPResult(data: data, response: httpResponse)
+            } catch {
+                guard retryable,
+                      Self.isTransientNetworkError(error),
+                      retryCount < 2 else {
+                    throw error
+                }
+                try await Task.sleep(nanoseconds: Self.retryDelay(retryCount))
+                retryCount += 1
+            }
         }
-        guard (200..<300).contains(httpResponse.statusCode) else {
-            throw Self.serviceError(data: data, status: httpResponse.statusCode)
-        }
-        return XboxHTTPResult(data: data, response: httpResponse)
     }
 
     func decode<T: Decodable>(_ type: T.Type, from request: URLRequest) async throws -> T {
@@ -68,5 +90,54 @@ final class XboxHTTPClient {
             ?? (object?["Message"] as? String)
             ?? (object?["errorMessage"] as? String)
         return XboxServiceError(statusCode: status, code: code, serverMessage: message)
+    }
+
+    static func isTransientNetworkError(_ error: Error) -> Bool {
+        guard let urlError = error as? URLError else { return false }
+        switch urlError.code {
+        case .timedOut, .cannotFindHost, .cannotConnectToHost, .networkConnectionLost,
+             .dnsLookupFailed, .notConnectedToInternet, .dataNotAllowed, .internationalRoamingOff:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func isRetryable(_ request: URLRequest) -> Bool {
+        let method = request.httpMethod?.uppercased() ?? "GET"
+        if ["GET", "HEAD", "DELETE"].contains(method) {
+            return true
+        }
+        guard method == "POST",
+              let host = request.url?.host?.lowercased(),
+              let path = request.url?.path else {
+            return false
+        }
+        switch host {
+        case "login.microsoftonline.com":
+            return path == "/consumers/oauth2/v2.0/devicecode"
+                || path == "/consumers/oauth2/v2.0/token"
+        case "login.live.com":
+            return path == "/oauth20_token.srf"
+        case "user.auth.xboxlive.com":
+            return path == "/user/authenticate"
+        case "xsts.auth.xboxlive.com":
+            return path == "/xsts/authorize"
+        case "xhome.gssv-play-prod.xboxlive.com":
+            return path == "/v2/login/user"
+        case "xccs.xboxlive.com":
+            return path == "/commands"
+        default:
+            return host.hasSuffix(".core.gssv-play-prodxhome.xboxlive.com")
+                && path.hasSuffix("/keepalive")
+        }
+    }
+
+    private static func isTransientServerStatus(_ statusCode: Int) -> Bool {
+        [408, 429, 500, 502, 503, 504].contains(statusCode)
+    }
+
+    private static func retryDelay(_ retryCount: Int) -> UInt64 {
+        500_000_000 * UInt64(1 << retryCount)
     }
 }

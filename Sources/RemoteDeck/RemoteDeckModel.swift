@@ -63,7 +63,7 @@ final class RemoteDeckModel: ObservableObject {
             }
         } catch {
             signInStatus = nil
-            errorMessage = error.localizedDescription
+            errorMessage = Self.friendlyError(error)
         }
     }
 
@@ -77,7 +77,7 @@ final class RemoteDeckModel: ObservableObject {
             consoles = try await consoleService.consoles(using: newContext)
             deviceCode = nil
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = Self.friendlyError(error)
         }
     }
 
@@ -147,7 +147,7 @@ final class RemoteDeckModel: ObservableObject {
                     token: context.homeToken.gsToken
                 )
             } catch {
-                errorMessage = "The stream ended, but Xbox could not confirm session cleanup: \(error.localizedDescription)"
+                errorMessage = "The stream ended, but Xbox could not confirm session cleanup: \(Self.friendlyError(error))"
             }
         }
         activeSession = nil
@@ -185,7 +185,7 @@ final class RemoteDeckModel: ObservableObject {
                 } catch is CancellationError {
                     return
                 } catch {
-                    self.errorMessage = "Xbox session keepalive failed: \(error.localizedDescription)"
+                    self.errorMessage = "Xbox session keepalive failed: \(Self.friendlyError(error))"
                     return
                 }
             }
@@ -199,6 +199,9 @@ final class RemoteDeckModel: ObservableObject {
     }
 
     private static func friendlyError(_ error: Error) -> String {
+        if XboxHTTPClient.isTransientNetworkError(error) {
+            return "RemoteDeck could not reach Microsoft or your Xbox. Check your iPhone and Xbox network connection, then try again."
+        }
         let detail = error.localizedDescription
         let lowercased = detail.lowercased()
         if lowercased.contains("timed out") || lowercased.contains("network") {

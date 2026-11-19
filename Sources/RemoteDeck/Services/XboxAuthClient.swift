@@ -50,6 +50,7 @@ final class XboxAuthClient {
     func pollForDeviceCode(_ deviceCode: DeviceCodeResponse) async throws -> OAuthTokenSet {
         let deadline = Date().addingTimeInterval(TimeInterval(deviceCode.expiresIn))
         var interval = max(1, deviceCode.interval)
+        var consecutiveNetworkFailures = 0
         let endpoint = URL(string: "https://login.microsoftonline.com/consumers/oauth2/v2.0/token")!
         while Date() < deadline {
             try await Task.sleep(nanoseconds: UInt64(interval) * 1_000_000_000)
@@ -68,6 +69,7 @@ final class XboxAuthClient {
                 try tokenStore.save(tokens)
                 return tokens
             } catch let error as XboxServiceError {
+                consecutiveNetworkFailures = 0
                 switch error.code {
                 case "authorization_pending":
                     continue
@@ -82,6 +84,15 @@ final class XboxAuthClient {
                 }
             } catch let error as DecodingError {
                 throw error
+            } catch {
+                guard XboxHTTPClient.isTransientNetworkError(error) else {
+                    throw error
+                }
+                consecutiveNetworkFailures += 1
+                guard consecutiveNetworkFailures < 3 else {
+                    throw error
+                }
+                interval = min(max(interval, 5) * 2, 30)
             }
         }
         throw XboxAuthError.deviceCodeExpired

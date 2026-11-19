@@ -46,6 +46,12 @@ final class TokenFlowTests: XCTestCase {
         XCTAssertEqual(error.serverMessage, "The request is still pending.")
     }
 
+    func testTransientNetworkErrorsAreRecognized() {
+        XCTAssertTrue(XboxHTTPClient.isTransientNetworkError(URLError(.networkConnectionLost)))
+        XCTAssertTrue(XboxHTTPClient.isTransientNetworkError(URLError(.notConnectedToInternet)))
+        XCTAssertFalse(XboxHTTPClient.isTransientNetworkError(URLError(.unsupportedURL)))
+    }
+
     func testOAuthTokenSetUsesExpiryAndRefreshToken() throws {
         let data = Data(#"{"access_token":"access","refresh_token":"refresh","expires_in":3600}"#.utf8)
         let payload = try JSONDecoder().decode(OAuthTokenPayload.self, from: data)
