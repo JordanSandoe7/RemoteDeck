@@ -50,6 +50,7 @@ final class WebRTCTransport: NSObject, ObservableObject {
         self.session = session
         self.token = token
         self.signaling = signaling
+        await resetLocalCandidates()
 
         let configuration = RTCConfiguration()
         configuration.iceServers = []
@@ -285,15 +286,32 @@ final class WebRTCTransport: NSObject, ObservableObject {
     }
 
     private func waitForLocalCandidates(on peer: RTCPeerConnection) async -> [RTCIceCandidate] {
-        if peer.iceGatheringState == .complete {
-            return localCandidates
-        }
         return await withCheckedContinuation { continuation in
-            candidateWaiter = continuation
-            DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
-                guard let self, let waiter = self.candidateWaiter else { return }
+            DispatchQueue.main.async { [weak self] in
+                guard let self else {
+                    continuation.resume(returning: [])
+                    return
+                }
+                if peer.iceGatheringState == .complete {
+                    continuation.resume(returning: self.localCandidates)
+                    return
+                }
+                self.candidateWaiter = continuation
+                DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
+                    guard let self, let waiter = self.candidateWaiter else { return }
+                    self.candidateWaiter = nil
+                    waiter.resume(returning: self.localCandidates)
+                }
+            }
+        }
+    }
+
+    private func resetLocalCandidates() async {
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            DispatchQueue.main.async {
+                self.localCandidates.removeAll(keepingCapacity: true)
                 self.candidateWaiter = nil
-                waiter.resume(returning: self.localCandidates)
+                continuation.resume()
             }
         }
     }

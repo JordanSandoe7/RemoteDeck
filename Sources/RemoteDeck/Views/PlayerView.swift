@@ -112,6 +112,11 @@ private struct WebRTCVideoSurface: UIViewRepresentable {
         }
     }
 
+    static func dismantleUIView(_ view: RTCMTLVideoView, coordinator: Coordinator) {
+        coordinator.track?.remove(view)
+        coordinator.track = nil
+    }
+
     func makeCoordinator() -> Coordinator {
         Coordinator()
     }
