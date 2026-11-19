@@ -101,8 +101,7 @@ final class RemoteDeckModel: ObservableObject {
                 connectionStatus = "Xbox reports standby/off. Sending wake request…"
                 try await sendWakeRequest(console, using: newContext)
                 didSendWake = true
-                connectionStatus = "Waiting for Xbox to wake…"
-                try await Task.sleep(nanoseconds: 12_000_000_000)
+                connectionStatus = "Wake requested. Starting stream setup while Xbox wakes…"
             }
             let service = SessionSignalingService(auth: auth)
             sessionService = service
@@ -175,8 +174,8 @@ final class RemoteDeckModel: ObservableObject {
                     connectionStatus = "Xbox reports online but is not registered. Sending wake request…"
                     try await sendWakeRequest(console, using: context)
                     didSendWake = true
-                    connectionStatus = "Waiting for Xbox to wake…"
-                    try await Task.sleep(nanoseconds: 12_000_000_000)
+                    connectionStatus = "Wake requested. Retrying stream setup…"
+                    try await Task.sleep(nanoseconds: 3_000_000_000)
                 } else {
                     connectionStatus = "Xbox is still registering. Retrying stream setup…"
                     try await Task.sleep(nanoseconds: retryDelays[attempt] * 1_000_000_000)
