@@ -45,7 +45,7 @@ final class XboxHTTPClient {
             throw URLError(.badServerResponse)
         }
         guard (200..<300).contains(httpResponse.statusCode) else {
-            throw serviceError(data: data, status: httpResponse.statusCode)
+            throw Self.serviceError(data: data, status: httpResponse.statusCode)
         }
         return XboxHTTPResult(data: data, response: httpResponse)
     }

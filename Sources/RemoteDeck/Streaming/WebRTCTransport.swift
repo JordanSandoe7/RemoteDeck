@@ -87,9 +87,6 @@ final class WebRTCTransport: NSObject, ObservableObject {
         try await setLocalDescription(localDescription, on: peer)
         let gatheredCandidates = await waitForLocalCandidates(on: peer)
 
-        guard let session, let signaling else {
-            throw SessionSignalingError.invalidSessionResponse
-        }
         let answer = try await signaling.exchangeSDP(localSDP, session: session, token: token)
         try await setRemoteDescription(
             RTCSessionDescription(type: .answer, sdp: answer),
@@ -196,7 +193,7 @@ final class WebRTCTransport: NSObject, ObservableObject {
         on peer: RTCPeerConnection,
         constraints: RTCMediaConstraints
     ) async throws -> RTCSessionDescription {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<RTCSessionDescription, Error>) in
             peer.offer(for: constraints) { description, error in
                 if let error {
                     continuation.resume(throwing: error)
@@ -210,7 +207,7 @@ final class WebRTCTransport: NSObject, ObservableObject {
     }
 
     private func setLocalDescription(_ description: RTCSessionDescription, on peer: RTCPeerConnection) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             peer.setLocalDescription(description) { error in
                 if let error {
                     continuation.resume(throwing: error)
@@ -222,7 +219,7 @@ final class WebRTCTransport: NSObject, ObservableObject {
     }
 
     private func setRemoteDescription(_ description: RTCSessionDescription, on peer: RTCPeerConnection) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             peer.setRemoteDescription(description) { error in
                 if let error {
                     continuation.resume(throwing: error)
@@ -234,7 +231,7 @@ final class WebRTCTransport: NSObject, ObservableObject {
     }
 
     private func add(_ candidate: RTCIceCandidate, to peer: RTCPeerConnection) async throws {
-        try await withCheckedThrowingContinuation { continuation in
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             peer.add(candidate) { error in
                 if let error {
                     continuation.resume(throwing: error)
