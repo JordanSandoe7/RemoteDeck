@@ -544,7 +544,7 @@ extension WebRTCTransport: RTCPeerConnectionDelegate {
         didAdd receiver: RTCRtpReceiver,
         streams: [RTCMediaStream]
     ) {
-        let track = receiver.track
+        guard let track = receiver.track else { return }
         if let videoTrack = track as? RTCVideoTrack {
             DispatchQueue.main.async {
                 guard !self.closed else { return }
